@@ -1,0 +1,41 @@
+form {
+    position: relative;
+    max-width: 500px;
+    margin-bottom: 100px;
+    padding: 50px;
+    box-shadow: 1px 1px 10px #ccc;
+
+    input, label {
+        width: 100%;
+    }
+
+    .multiselect__tags {
+        border-color: #ced4da;
+    }
+
+    .multiselect__placeholder {
+        color: #495057;
+    }
+
+    .-error {
+        input, .multiselect__tags {
+            border-color: red;
+        }
+    }
+
+    .error {
+        color: red;
+    }
+
+    .form-datepicker {
+        .form-control {
+            background-color: #fff;
+
+            &:disabled {
+                background-color: #e9ecef;
+            }
+        }
+    }
+}
+
+
