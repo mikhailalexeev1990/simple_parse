@@ -27,6 +27,7 @@
         "sass": "^1.29.0",
         "sass-loader": "^10.1.0",
         "svg-spritemap-webpack-plugin": "^3.7.1",
+        "tailwindcss": "^2.1.4",
         "vue": "^2.6.12",
         "vue-js-modal": "^2.0.0-rc.3",
         "vue-loader": "^16.0.0-rc.2",

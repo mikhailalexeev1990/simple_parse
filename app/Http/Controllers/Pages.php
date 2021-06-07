@@ -8,10 +8,11 @@ class Pages extends Controller
 {
     public function index()
     {
-        $news = News::with('image')->limit(15)->orderBy('created_at')->get();
+        $news = News::with('image')->orderBy('updated_at', 'desc')
+            ->paginate(15);
 
         return view('index', [
-            'news' => $news
+            'news' => $news,
         ]);
     }
 
