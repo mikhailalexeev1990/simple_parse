@@ -1,12 +1,15 @@
 ## Install
 
 1) Create docker container
-- docker-compose up -d
+- `docker-compose up -d`
 
-2) install dependencies
-- docker exec -it parser_local_php-fpm bash
-- composer install && npm i && npm run dev
-- php artisan db:create && php artisan migrate
+2) install
+- `docker exec -it parser_local_php-fpm bash`
+- `composer install && npm i && npm run dev`
+- `php artisan db:create && php artisan migrate`
+- start parser - `php artisan parse-rbk:news`
 
-3) if you would like to delete container
-- docker-compose down && 
+3) stop docker
+- exit from docker container - use `exit`
+- `docker-compose down` 
+or (if you need to delete an image) `docker-compose down --rmi all` ()
