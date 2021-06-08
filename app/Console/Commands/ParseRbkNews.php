@@ -7,10 +7,6 @@ use Illuminate\Console\Command;
 
 class ParseRbkNews extends Command
 {
-    public $last_news_elem;
-
-    public $news;
-
     /**
      * The name and signature of the console command.
      *

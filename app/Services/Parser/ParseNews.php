@@ -3,123 +3,73 @@
 namespace App\Services\Parser;
 
 use App\Models\News;
+use App\Services\Parser\ParserList\RbkSideBarParserList;
+use App\Services\Parser\ParserPage\RbkPage;
+use App\Services\Parser\ParserPage\RbkSpbPlusPage;
+use App\Services\Parser\ParserPage\RbkSportPage;
 
 class ParseNews extends AbstractParser
 {
-    public const NEWS_AMOUNT = 15;
-    public const PARSER_TIMEOUT = 3;
-    public const ELEMENT_NEWS_LIST = '.news-feed__wrapper .js-news-feed-list a';
-    public const ELEMENT_NEWS_TITLE = '.news-feed__item__title';
-    public const ELEMENT_NEWS_PAGE = '.article__main-image__wrap img';
-    public const ELEMENT_NEWS_TEXT_PAGE = '.js-rbcslider-slide.rbcslider__slide .article p';
+    const PAGES_CLASSES = [
+        self::RBK_MAIN => RbkPage::class,
+        self::RBK_SPB_PLUS => RbkSpbPlusPage::class,
+        self::RBK_SPORT => RbkSportPage::class,
+    ];
 
     public array $news = [];
 
+    public string $parser_page_class;
+
     public function parseData()
     {
-        $response = \Http::get($this->rbk_url);
-        $html = $response->body();
-
-        $main_page = $this->getDom($html);
-        $news_list = $main_page->find(self::ELEMENT_NEWS_LIST);
-
-        if (!count($news_list)) {
-            $this->errors[] = 'news list is empty!';
-
-            return;
-        }
+        $this->setListFabric($this->makeClass(RbkSideBarParserList::class));
 
         dump("parse news");
-        $this->parseNewsList($news_list);
-        $this->checkNewsAmount();
+        $list = $this->parser_list->getListData();
+        $this->parser_list->parseList($list);
+        $this->parser_list->checkListAmount();
+        $this->news = $this->parser_list->getList();
         dump("end parse news");
+        dump(PHP_EOL);
+
+        dump("parse page");
+        $this->parsePage();
+        dump("end parse page");
         dump(PHP_EOL);
 
         dump('saveData');
         $this->saveData();
-        dump("end parse news");
+        dump("end save data");
         dump(PHP_EOL);
     }
 
-    public function parseNewsList($news_list)
+    public function parsePage()
     {
-        foreach ($news_list as $elem) {
-            if (count($this->news) >= self::NEWS_AMOUNT) {
-                return true;
-            }
+        if (!empty($this->news)) {
+            foreach ($this->news as $i => $news_item) {
+                $link = $this->getHostLink($news_item['link']);
 
-            if (!count($elem)) {
-                continue;
-            }
-
-            $title = $elem->find(self::ELEMENT_NEWS_TITLE);
-
-            if (count($title)) {
-                $title = $title->innerHtml;
-                $link = preg_replace('/\?.*/', '', $elem->getAttribute('href'));
-                $modif = $elem->getAttribute('data-modif');
-
-                $this->news[$title] = [
-                    'title' => $title,
-                    'link' => $link,
-                    'modif' => $modif,
-                    'target_blank' => 0,
-                ];
-
-                if (strpos($link, $this->rbk_url) !== false) {
-                    $response = \Http::get($link);
-                    $html = $response->body();
-
-                    $page = $this->getDom($html);
-                    $img = $page->find(self::ELEMENT_NEWS_PAGE);
-                    $p_list = $page->find(self::ELEMENT_NEWS_TEXT_PAGE);
-
-                    if (count($img)) {
-                        $this->news[$title]['image'] = [
-                            'image_src' => $img->getAttribute('src'),
-                            'image_alt' => $img->getAttribute('alt'),
-                        ];
-                    }
-
-                    if (count($p_list)) {
-                        $info_list = [];
-                        foreach ($p_list as $p) {
-                            $info_list[] = $this->deleteAllTags($p->innerHtml);
-                        }
-                        $this->news[$title]['info'] = implode(PHP_EOL, $info_list);
-                    }
-                } else {
-                    $this->news[$title]['target_blank'] = 1;
+                switch ($link) {
+                    case self::RBK_MAIN:
+                        $this->parser_page_class = self::PAGES_CLASSES[self::RBK_MAIN];
+                        break;
+                    case self::RBK_SPB_PLUS:
+                        $this->parser_page_class = self::PAGES_CLASSES[self::RBK_SPB_PLUS];
+                        break;
+                    case self::RBK_SPORT:
+                        $this->parser_page_class = self::PAGES_CLASSES[self::RBK_SPORT];
+                        break;
+                    default:
+                        $this->news[$news_item['title']]['target_blank'] = 1;
+                        continue 2;
                 }
+
+                $this->setPageFabric($this->makeClass($this->parser_page_class));
+                $parser_page = $this->getPageFabric();
+                $parser_page->setLink($news_item['link']);
+                $this->news[$i] = array_merge($news_item, $parser_page->parsePage());
             }
         }
-    }
-
-    public function checkNewsAmount()
-    {
-        if (count($this->news) < self::NEWS_AMOUNT) {
-            sleep(self::PARSER_TIMEOUT);
-            $next_news = $this->getDom($this->getNextNewsHtml())->find('a');
-            $this->parseNewsList($next_news);
-
-            return $this->checkNewsAmount();
-        }
-
-        return true;
-    }
-
-    public function getNextNewsHtml()
-    {
-        $last_news = $this->news[array_key_last($this->news)];
-        $url = $this->rbk_url_modif . $last_news['modif'] . '/limit/22?_=' . time();
-
-        $response = \Http::get($url);
-        $next_news = $response->body();
-        \Storage::put('next1.json', $next_news);
-        $next_news = json_decode($next_news, JSON_OBJECT_AS_ARRAY)['items'];
-        $html = implode('', array_column($next_news, 'html'));
-
-        return "$html";
     }
 
     public function saveData()
@@ -127,9 +77,11 @@ class ParseNews extends AbstractParser
         if (count($this->news)) {
             foreach ($this->news as $news_item) {
                 dump("save news - {$news_item['title']}");
-
                 if (!empty($news_item['image'])) {
-                    $news_item['image']['id'] = $this->saveImg($news_item['image']['image_src'], $news_item['image']['image_alt']);
+                    $news_item['image']['id'] = $this->saveImg(
+                        $news_item['image']['image_src'],
+                        $news_item['image']['image_alt']
+                    );
                 }
 
                 $this->saveNews($news_item);

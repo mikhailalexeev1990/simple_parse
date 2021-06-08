@@ -3,31 +3,31 @@
 namespace App\Services\Parser;
 
 use App\Models\Images;
-use PHPHtmlParser\Dom;
+use App\Services\Parser\ParserList\ParserListInterface;
+use App\Services\Parser\ParserPage\ParserPageInterface;
 
 abstract class AbstractParser implements ParserInterface
 {
+    use ParserTrait;
+
+    public const RBK_SPB_PLUS = 'spb.plus.rbc.ru';
+    public const RBK_MAIN = 'www.rbc.ru';
+    public const RBK_SPORT = 'sportrbc.ru';
+
+    /**
+     * @var array
+     */
     public array $errors = [];
 
     /**
-     * @var string
+     * @var ParserPageInterface
      */
-    public string $rbk_url = 'https://www.rbc.ru/';
+    public ParserPageInterface $parser_page;
 
     /**
-     * @var string
+     * @var ParserListInterface
      */
-    public string $rbk_url_modif = 'https://www.rbc.ru/v10/ajax/get-news-feed/project/spb_sz/lastDate/';
-
-    /**
-     * @var Dom
-     */
-    private Dom $dom;
-
-    public function __construct(Dom $dom)
-    {
-        $this->dom = $dom;
-    }
+    public ParserListInterface $parser_list;
 
     public function parse()
     {
@@ -35,21 +35,12 @@ abstract class AbstractParser implements ParserInterface
         $this->saveData();
     }
 
-    public function getDom(string $html)
+    public function saveImg(?string $img_src, ?string $img_alt): ?int
     {
-        $dom = new $this->dom;
-        $dom->loadStr($html);
+        if (empty($img_src)) {
+            return null;
+        }
 
-        return $dom;
-    }
-
-    public function deleteAllTags(string $html)
-    {
-        return preg_replace("/\s+/", ' ', preg_replace('/<[^>]+>/', '', $html));
-    }
-
-    public function saveImg(string $img_src, string $img_alt): ?int
-    {
         $path = explode('/', parse_url($img_src)['path']);
         $img_name = end($path);
         $img_path = "/images/$img_name";
@@ -79,6 +70,11 @@ abstract class AbstractParser implements ParserInterface
         $this->errors[] = "error - {$e->getMessage()}, file - {$e->getFile()}:{$e->getLine()}";
     }
 
+    public function getHostLink(string $link)
+    {
+        return parse_url($link, PHP_URL_HOST);
+    }
+
     public function __destruct()
     {
         if (!empty($this->errors)) {
@@ -87,5 +83,29 @@ abstract class AbstractParser implements ParserInterface
                 dump("$index) error - $error");
             }
         }
+    }
+
+    public function setPageFabric(ParserPageInterface $parser_page)
+    {
+        $this->parser_page = $parser_page;
+
+        return $this;
+    }
+
+    public function getPageFabric(): ParserPageInterface
+    {
+        return $this->parser_page;
+    }
+
+    public function setListFabric(ParserListInterface $parser_list)
+    {
+        $this->parser_list = $parser_list;
+
+        return $this;
+    }
+
+    public function getListFabric(): ParserListInterface
+    {
+        return $this->parser_list;
     }
 }
