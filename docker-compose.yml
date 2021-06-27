@@ -52,8 +52,6 @@ services:
     container_name: ${PROJECT_NAME}_redis
     environment:
       TZ: Europe/Moscow
-    ports:
-      - 6379:6379
     networks:
       - common
 
